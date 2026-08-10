@@ -1,0 +1,14 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:19.2.1-ce.0
+    container_name: gitlab
+    hostname: 192.168.70.196
+    restart: always
+    ports:
+      - "8080:80"
+      - "8022:22"
+    volumes:
+      - /home/wsfoo/gitlab/config:/etc/gitlab
+      - /home/wsfoo/gitlab/logs:/var/log/gitlab
+      - /home/wsfoo/gitlab/data:/var/opt/gitlab
+    shm_size: "256m"

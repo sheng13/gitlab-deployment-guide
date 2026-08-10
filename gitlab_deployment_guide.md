@@ -1,15 +1,15 @@
-# 🚀 GitLab 本地私有化高效部署与全套使用指南 (2026 终极实战版)
+# 🚀 GitLab CE 19.2 完整安装、使用与管理员实战指南
 
-> **版本支持**：GitLab Community Edition (CE) v17.x / v16.x  
-> **适用环境**：Ubuntu 20.04/22.04/24.04 LTS、Debian 11/12、CentOS 7/8/9、Rocky Linux、Windows WSL2 / Docker Desktop  
-> **作者**：Antigravity AI 专家团队  
+> **版本支持**：GitLab Community Edition (CE) 19.2.1
+> **适用环境**：Ubuntu 20.04/22.04/24.04 LTS、Debian 11/12、CentOS 7/8/9、Rocky Linux、Windows WSL2 / Docker Desktop
+> **维护者**：sheng13 社区教程
 
 ---
 
 ## 📌 目录
 - [一、 前言与硬件/环境要求](#一-前言与硬件环境要求)
 - [二、 GitLab 整体系统架构图解](#二-gitlab-整体系统架构图解)
-- [三、 部署方案一：基于 Docker Compose 本地一键部署（强烈推荐）](#三-部署方案一基于-docker-compose-本地一键部署强烈推荐)
+- [三、 部署方案一：基于 Docker Compose 本地一键部署（强烈推荐）](#三-部署方案一基于-docker compose-本地一键部署强烈推荐)
 - [四、 部署方案二：Linux 原生包安装 (Omnibus Package)](#四-部署方案二linux-原生包安装-omnibus-package)
 - [五、 首次登录与系统初始化安全配置](#五-首次登录与系统初始化安全配置)
 - [六、 GitLab 核心使用指南与权限管理](#六-gitlab-核心使用指南与权限管理)
@@ -83,21 +83,22 @@ version: '3.8'
 
 services:
   gitlab:
-    image: 'gitlab/gitlab-ce:17.3.0-ce.0'
-    container_name: 'gitlab-ce'
+    image: 'gitlab/gitlab-ce:19.2.1-ce.0'
+    container_name: 'gitlab'
     restart: always
     hostname: 'gitlab.local'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         # 外部访问 URL (替换为您的宿主机实际 IP 或域名)
-        external_url 'http://192.168.1.100:8080'
-        
+        external_url 'http://192.168.70.196:8080'
+        nginx['listen_port'] = 80
+
         # 修改 GitLab 内置 SSH 端口以避免与宿主机 22 端口冲突
-        gitlab_rails['gitlab_shell_ssh_port'] = 2222
-        
+        gitlab_rails['gitlab_shell_ssh_port'] = 8022
+
         # 时区设置
         gitlab_rails['time_zone'] = 'Asia/Shanghai'
-        
+
         # -----------------------------------------------------------------
         # 内存性能优化配置 (适合 4GB ~ 8GB 内存的环境)
         # -----------------------------------------------------------------
@@ -106,11 +107,11 @@ services:
         sidekiq['max_concurrency'] = 10
         postgresql['shared_buffers'] = "256MB"
         prometheus_monitoring['enable'] = false
-        
+
     ports:
       - '8080:80'     # Web HTTP 访问端口
       - '8443:443'   # HTTPS 端口 (如启用 SSL)
-      - '2222:22'    # Git SSH 提交端口
+      - '8022:22'    # Git SSH 提交端口
     volumes:
       - '/srv/gitlab/config:/etc/gitlab'
       - '/srv/gitlab/logs:/var/log/gitlab'
@@ -125,10 +126,10 @@ services:
 ```bash
 cd /srv/gitlab
 # 启动容器
-docker-compose up -d
+docker compose up -d
 
 # 实时查看启动日志 (首次启动需要 2 ~ 5 分钟进行数据库初始化)
-docker logs -f gitlab-ce
+docker logs -f gitlab
 ```
 
 ---
@@ -146,11 +147,11 @@ sudo apt-get install -y curl openssh-server ca-certificates tzdata perl
 
 ### 4.2 配置清华大学开源软件镜像源 (加速下载)
 
-创建并修改包源文件 `/etc/apt/sources.list.d/gitlab-ce.list`：
+创建并修改包源文件 `/etc/apt/sources.list.d/gitlab.list`：
 
 ```bash
 curl -fsSL https://packages.gitlab.com/gpg.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/gitlab.gpg
-echo "deb https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/gitlab-ce.list
+echo "deb https://mirrors.tuna.tsinghua.edu.cn/gitlab/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/gitlab.list
 ```
 
 ### 4.3 执行安装与重配置
@@ -158,7 +159,7 @@ echo "deb https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/ubuntu jammy main" | su
 ```bash
 sudo apt-get update
 # 安装 GitLab CE 最新版本
-sudo EXTERNAL_URL="http://192.168.1.100" apt-get install gitlab-ce
+sudo EXTERNAL_URL="http://192.168.70.196" apt-get install gitlab
 
 # 首次重配置与初始化 (生成配置文件并启动所有服务)
 sudo gitlab-ctl reconfigure
@@ -176,13 +177,15 @@ sudo gitlab-ctl reconfigure
 
 ## 五、 首次登录与系统初始化安全配置
 
+![GitLab 19.2 登录页面](./images/gitlab-login.png)
+
 ### 5.1 获取管理员 `root` 默认密码
 
 GitLab 在安装完成后会自动生成一个随机初始密码，有效期为 24 小时：
 
 ```bash
 # Docker 部署方式获取：
-docker exec -it gitlab-ce cat /etc/gitlab/initial_root_password
+docker exec -it gitlab cat /etc/gitlab/initial_root_password
 
 # 原生安装方式获取：
 sudo cat /etc/gitlab/initial_root_password
@@ -216,7 +219,7 @@ gitlab_rails['smtp_tls'] = true
 gitlab_rails['gitlab_email_from'] = 'notification@yourdomain.com'
 ```
 
-保存后重新运行：`docker exec -it gitlab-ce gitlab-ctl reconfigure`。
+保存后重新运行：`docker exec -it gitlab gitlab-ctl reconfigure`。
 
 ---
 
@@ -273,6 +276,30 @@ cat ~/.ssh/id_ed25519.pub
 
 ---
 
+## 管理员 Admin Area 完整操作
+
+管理员从左上角菜单进入 **Admin**。这里管理整个实例，不是单一项目。
+
+### 用户生命周期
+
+在 **Admin → Overview → Users** 可建立、封锁、停用或删除用户。离职账号应先 Block，转移群组和项目所有权、撤销 Token 与 SSH Key，再按保留政策处理；不要一开始就删除。`Admin` 权限只给极少数可信人员。Impersonate 仅用于排障，结束后立即退出并保留审计记录。
+
+### 群组、项目与权限
+
+用顶层 Group 表示组织，再以 Subgroup 区分部门或产品，让项目继承群组成员。普通开发者给 Developer，负责人给 Maintainer，Owner 仅给群组负责人。项目默认 Private，并保护 `main`：禁止直接 push，要求 Merge Request、成功流水线和审查。
+
+### 注册、可见性与系统设置
+
+在 **Admin → Settings → General** 关闭公开注册，限制 Public/Internal 项目创建，设置默认项目可见性和新用户权限。保存后用普通账号或无痕窗口验证。
+
+### 安全与凭证
+
+管理员和 root 必须使用强密码及 2FA，恢复代码离线保存。个人访问 Token 只给必要 scope 并设置到期日；CI 秘密放在 masked/protected Variables，不写进仓库、URL 或日志。定期检查管理员、长期未用账号、过期 Token 与异常 Runner。
+
+### SMTP、限额与维护
+
+配置 SMTP 后执行 `docker exec gitlab gitlab-ctl reconfigure` 并发送测试邮件。规划 Repository、LFS、Artifacts 与 Registry 限额，流水线产物设置 `expire_in`。管理员每周检查磁盘、Sidekiq、Runner、备份新鲜度与证书到期日。
+
 ## 七、 GitLab CI/CD 自动化流水线实战
 
 GitLab 内置了强大的 CI/CD 引擎，只需在项目根目录创建 `.gitlab-ci.yml` 即可触发自动化构建与部署。
@@ -290,13 +317,13 @@ GitLab Runner 是用于真正执行 CI/CD 任务的具体构建节点。
 docker run -d --name gitlab-runner --restart always \
   -v /srv/gitlab-runner/config:/etc/gitlab-runner \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  gitlab/gitlab-runner:latest
+  gitlab/gitlab-runner:alpine-v19.2.1
 
-# 2. 注册 Runner 到您的 GitLab 实例
+# 2. 先在项目/群组 Runner 页面建立 Runner，再使用短期显示的 authentication token 注册
 docker exec -it gitlab-runner gitlab-runner register \
   --non-interactive \
-  --url "http://192.168.1.100:8080/" \
-  --registration-token "YOUR_PROJECT_REGISTRATION_TOKEN" \
+  --url "http://192.168.70.196:8080/" \
+  --token "glrt-REDACTED" \
   --executor "docker" \
   --docker-image "node:18-alpine" \
   --description "Local-Docker-Runner" \
@@ -362,15 +389,15 @@ deploy_prod:
 
 ```bash
 # Docker 容器执行备份命令：
-docker exec -t gitlab-ce gitlab-backup create
+docker exec -t gitlab gitlab-backup create
 
 # 原生安装备份命令：
 sudo gitlab-backup create
 ```
 
-默认备份文件会保存在 `/var/opt/gitlab/backups`（挂载在宿主机的 `/srv/gitlab/data/backups`）目录下，文件名形如：`1722998400_2026_08_07_17.3.0_gitlab_backup.tar`。
+默认备份文件会保存在 `/var/opt/gitlab/backups`（挂载在宿主机的 `/srv/gitlab/data/backups`）目录下，文件名形如：`1786350457_2026_08_10_19.2.0_gitlab_backup.tar`。
 
-> ⚠️ **重要提示**：除了数据备份文件外，还必须手动备份 `/etc/gitlab/gitlab-secrets.json` 和 `/etc/gitlab/gitlab.rb` 两个密钥配置文件！
+> ⚠️ **完整备份有三层**：应用备份 tar；`/etc/gitlab` 内的 `gitlab.rb`、`gitlab-secrets.json`、证书和 SSH 主机密钥；镜像精确版本、Compose、端口、卷路径和 SHA-256 清单。缺少 secrets 可能无法解密 CI 变量与 Token。备份必须另存到另一台机器或加密存储。
 
 ### 8.2 设置 Linux Cron 定时自动备份脚本
 
@@ -379,10 +406,11 @@ sudo gitlab-backup create
 ```bash
 #!/bin/bash
 # 1. 执行备份
-docker exec -t gitlab-ce gitlab-backup create
+docker exec -t gitlab gitlab-backup create
 
-# 2. 删除 7 天前的旧备份文件以节省磁盘
-find /srv/gitlab/data/backups -type f -mtime +7 -name "*.tar" -exec rm -f {} \;
+# 2. 只有在备份成功后才生成校验清单；删除策略应另行审核
+sha256sum /srv/gitlab/data/backups/*_gitlab_backup.tar > /srv/gitlab/SHA256SUMS
+# 3. 另行复制 /etc/gitlab、Compose、备份与清单到异机存储
 ```
 
 给予执行权限并添加到系统的 crontab：
@@ -402,17 +430,17 @@ chmod +x /usr/local/bin/gitlab_auto_backup.sh
 cp gitlab-secrets.json /srv/gitlab/config/
 
 # 2. 将备份 tar 包放入 backups 目录
-cp 1722998400_2026_08_07_17.3.0_gitlab_backup.tar /srv/gitlab/data/backups/
+cp 1786350457_2026_08_10_19.2.0_gitlab_backup.tar /srv/gitlab/data/backups/
 
 # 3. 停止数据库写入服务
-docker exec -it gitlab-ce gitlab-ctl stop puma
-docker exec -it gitlab-ce gitlab-ctl stop sidekiq
+docker exec -it gitlab gitlab-ctl stop puma
+docker exec -it gitlab gitlab-ctl stop sidekiq
 
 # 4. 执行数据恢复 (注意指定时间戳前缀)
-docker exec -it gitlab-ce gitlab-backup restore BACKUP=1722998400_2026_08_07_17.3.0
+docker exec -it gitlab gitlab-backup restore BACKUP=1786350457_2026_08_10_19.2.0
 
 # 5. 重启并校验
-docker exec -it gitlab-ce gitlab-ctl restart
+docker exec -it gitlab gitlab-ctl restart
 ```
 
 ---
@@ -420,19 +448,66 @@ docker exec -it gitlab-ce gitlab-ctl restart
 ## 九、 常见故障排查 (Troubleshooting FAQ)
 
 ### Q1：访问页面出现 502 Bad Gateway？
-- **原因 1**：物理内存不足，Puma 进程被操作系统 OOM Killer 杀掉。  
+- **原因 1**：物理内存不足，Puma 进程被操作系统 OOM Killer 杀掉。
   *解决*：增加 4GB SWAP 交换内存，并在 `gitlab.rb` 中缩减 `puma['worker_processes'] = 2`。
-- **原因 2**：后台服务正在初始化中（需等待 2-5 分钟）。  
-  *解决*：运行 `docker exec -it gitlab-ce gitlab-ctl status` 检查是否有服务一直在 `down` 状态。
+- **原因 2**：后台服务正在初始化中（需等待 2-5 分钟）。
+  *解决*：运行 `docker exec -it gitlab gitlab-ctl status` 检查是否有服务一直在 `down` 状态。
 
 ### Q2：使用 SSH 克隆提示 `Permission denied (publickey)`？
-- **原因**：本地端口未映射正确或 GitLab 内置 SSH 端口配置不匹配。  
-  *解决*：检查克隆地址是否带端口，如：`git clone ssh://git@192.168.1.100:2222/group/project.git`。
+- **原因**：本地端口未映射正确或 GitLab 内置 SSH 端口配置不匹配。
+  *解决*：检查克隆地址是否带端口，如：`git clone ssh://git@192.168.70.196:8022/group/project.git`。
 
 ### Q3：如何修改已部署 GitLab 的 IP 或域名？
-- **操作**：修改 `/srv/gitlab/config/gitlab.rb` 中的 `external_url 'http://new-ip:8080'`，然后运行 `docker exec -it gitlab-ce gitlab-ctl reconfigure`。
+- **操作**：修改 `/srv/gitlab/config/gitlab.rb` 中的 `external_url 'http://new-ip:8080'`，然后运行 `docker exec -it gitlab gitlab-ctl reconfigure`。
 
 ---
+
+## 升级、安全验收与本机实测
+
+### 升级前五项检查
+
+1. 阅读官方 release notes 与 upgrade path，跨版本时逐个经过 required upgrade stops。
+2. 记录当前精确版本、edition、镜像 digest、端口与卷路径。
+3. 生成应用备份，并另存 `/etc/gitlab`、Compose 与校验清单。
+4. 检查磁盘空间、后台迁移和当前容器健康度。
+5. 事先写好回退方案；数据库迁移后不能只靠换回旧镜像回退。
+
+将 Compose 镜像从 `19.2.0-ce.0` 固定改为 `19.2.1-ce.0` 后：
+
+```bash
+docker compose pull gitlab
+docker compose up -d gitlab
+docker logs -f gitlab
+```
+
+初始化时短暂 502 常见。看到 `gitlab-ctl reconfigure` 仍在运行时应等待，不要连续重启。完成后检查：
+
+```bash
+docker inspect -f '{{.Config.Image}} {{.State.Health.Status}}' gitlab
+docker exec gitlab gitlab-ctl status
+curl -I http://192.168.70.196:8080/users/sign_in
+ssh -T -p 8022 git.168.70.196
+```
+
+还要人工测试登录、项目、仓库 clone/push、Issue、MR、流水线、Runner、邮件与新备份。`healthy` 不等于所有业务验收完成。
+
+### 2026-08-10 本机结果
+
+| 检查 | 结果 |
+|---|---|
+| 版本 | GitLab CE 19.2.1 |
+| Web | `http://192.168.70.196:8080`，HTTP 200 |
+| SSH | 宿主机 8022 转发容器 22 |
+| 容器 | healthy，核心服务为 run |
+| 数据 | 继续使用原 config/logs/data 卷 |
+| 升级前备份 | `1786350457_2026_08_10_19.2.0_gitlab_backup.tar` |
+| SHA-256 | `0fd492a5cc715e026601097065b2817aa644bb19e676b1738e25d669d194b852` |
+
+配置密钥保存在受限独立目录，不提交至公开仓库。
+
+### Runner 特别安全提醒
+
+把 `/var/run/docker.sock` 挂给 Runner 会让 CI Job 获得接近宿主机 root 的能力。只给可信项目使用，限制 protected tags，并将不可信流水线放到隔离 Runner。
 
 ## 十、 GitHub 仓库提交与版本管理指南
 
@@ -467,9 +542,9 @@ git remote add origin https://github.com/sheng13/gitlab-deployment-guide.git
 git push -u origin main
 ```
 
-> 📌 如果使用 SSH 协议推送：  
-> `git remote set-url origin git@github.com:sheng13/gitlab-deployment-guide.git`  
+> 📌 如果使用 SSH 协议推送：
+> `git remote set-url origin git@github.com:sheng13/gitlab-deployment-guide.git`
 > `git push -u origin main`
 
 ---
-*文档编制完成时间：2026年8月7日 | Antigravity Engine*
+文档更新：2026-08-10，基于本机 GitLab CE 19.2.1 实测。

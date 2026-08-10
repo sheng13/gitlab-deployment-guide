@@ -1,0 +1,28 @@
+{
+  "dependencies": {
+    "marked": "16.1.1",
+    "puppeteer-core": "24.16.0"
+  },
+  "name": "gitlab-deployment-guide",
+  "version": "1.0.0",
+  "description": "![GitLab 自托管指南封面](./images/gitlab-self-hosted-cover.png)",
+  "main": "generate_pdf.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "node generate_pdf.js",
+    "pdf": "node generate_pdf.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sheng13/gitlab-deployment-guide.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sheng13/gitlab-deployment-guide/issues"
+  },
+  "homepage": "https://github.com/sheng13/gitlab-deployment-guide#readme"
+}

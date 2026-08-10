@@ -32,14 +32,14 @@ async function generatePDF() {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>GitLab 本地私有化高效部署与全套使用指南</title>
+  <title>GitLab CE 19.2 完整安装、使用与管理员实战指南</title>
   <style>
     @page {
       size: A4;
       margin: 20mm 15mm 20mm 15mm;
     }
     body {
-      font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, sans-serif;
+      font-family: "Noto Sans CJK TC", "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, sans-serif;
       color: #1e293b;
       line-height: 1.6;
       font-size: 14px;
@@ -166,8 +166,8 @@ async function generatePDF() {
 </html>
   `;
 
-  console.log('Launching Edge Puppeteer Browser...');
-  const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  console.log('Launching Chrome/Chromium...');
+  const edgePath = process.env.CHROME_PATH || "/usr/bin/google-chrome";
   
   const browser = await puppeteer.launch({
     executablePath: edgePath,
@@ -176,7 +176,8 @@ async function generatePDF() {
   });
 
   const page = await browser.newPage();
-  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+  await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await page.evaluate(() => Promise.all(Array.from(document.images, img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = img.onerror = resolve; }))));
 
   console.log('Generating PDF File...');
   await page.pdf({
