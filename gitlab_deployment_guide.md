@@ -276,6 +276,83 @@ cat ~/.ssh/id_ed25519.pub
 
 ---
 
+## 打开 GitLab 网页后：完整功能导览
+
+登录 `http://192.168.70.196:8080` 后，你看到的是工作区，不是系统管理后台。页面会随版本、授权方案、个人权限与项目启用功能略有差异。
+
+### 顶部与首页功能
+
+| 位置 | 功能 | 一般使用者怎么用 | 管理者关注点 |
+|---|---|---|---|
+| **Search or go to** | 搜索项目、群组、Issue、MR，也可快速跳转 | 输入项目名或按快捷键进入 | 管理员可从这里进入 Admin area |
+| **Create new**（`+`） | 建项目、群组、Snippet | 按权限建立个人项目或工作项 | 限制谁能建立顶层群组和公开项目 |
+| **To-Do List** | 待处理通知 | 把 MR 审查、Issue 指派标记完成/稍后 | 不能当正式审计或项目排期工具 |
+| **Issues / Merge requests** | 汇总自己可见范围的工作 | 查看指派给我、我建立或参与的项目事项 | 项目负责人追踪阻塞与审查积压 |
+| **头像菜单** | 个人资料、偏好、Token、SSH Key、2FA、登出 | 管理自己的身份与通知 | Admin Mode 开启时可在这里进入管理模式 |
+| **Admin** | 实例管理后台 | 一般用户看不到 | 只有 Self-Managed 实例 Administrator 可见 |
+
+首次使用建议依序完成：修改密码 → 启用 2FA → 加入 SSH 公钥 → 调整通知 → 找到所属群组 → 进入项目。
+
+### 进入一个 Project 后，左侧菜单逐项说明
+
+| 菜单 | 里面有什么 | 最常见操作 | 谁负责 |
+|---|---|---|---|
+| **Project overview** | README、描述、成员、统计、最近活动 | 先看 README、Clone 地址和默认分支 | 所有人阅读，Maintainer 维护说明 |
+| **Plan → Issues** | 工作项、Bug、需求、指派、标签、里程碑 | New issue、指派负责人、设 due date、关联 MR | Developer 建立；负责人规划 |
+| **Plan → Issue boards** | 看板列和拖放卡片 | 依标签建立 To do/Doing/Done | 项目负责人维护流程 |
+| **Code → Repository** | 文件、分支、Commits、Tags、Graph、Compare | 浏览代码、复制 clone URL、建立分支 | Developer 日常使用 |
+| **Code → Merge requests** | 代码审查、讨论、差异、审批 | 建 MR、请求 reviewer、解决 thread、合并 | Developer 提交；Maintainer 治理 |
+| **Build → Pipelines** | 每次 CI/CD 执行结果 | 看状态、重跑失败 Job、下载产物 | Developer 排错；Maintainer 管规则 |
+| **Build → Jobs** | 单一 Job 日志 | 找第一条真正错误、重试或取消 | Developer/Reporter 依权限查看 |
+| **Build → Artifacts** | 编译、测试报告、发布文件 | 下载或确认到期日 | Maintainer 控制保存期限与容量 |
+| **Deploy** | Environments、Releases、Feature flags 等 | 看测试/正式环境状态、回滚部署 | 只给受控角色执行生产部署 |
+| **Operate / Monitor** | 指标、错误、Kubernetes/运维功能（视配置） | 观察运行状态与告警 | 运维/维护者 |
+| **Secure** | 安全扫描结果（部分功能依方案） | 处理依赖、秘密、容器漏洞 | 安全人员与 Maintainer |
+| **Manage → Members** | 直接、继承、共享成员及到期日 | Invite members、改角色、移除访问 | Maintainer/Owner |
+| **Settings** | General、Integrations、Repository、CI/CD、Access Tokens | 保护分支、变量、Webhook、项目可见性 | Maintainer 可管理多项；删除等高风险操作限 Owner |
+
+如果某个菜单没出现，通常是：你的角色不够、项目关闭该功能、GitLab CE/方案不包含，或管理员全局禁用；不一定是故障。
+
+### 一个普通用户的完整工作实例
+
+1. 从顶部搜索进入项目，先读 README、贡献规范和 Issue 模板。
+2. 到 **Plan → Issues** 建立 Issue，标题写结果，描述写背景、验收条件和复现步骤。
+3. 在 Issue 页面选择 **Create merge request and branch**，或本地建立 `feat/issue-123-login`。
+4. 修改代码后运行本地测试，再 commit、push。
+5. 打开 **Code → Merge requests**，填写变更摘要、测试结果、截图与风险，关联 `Closes #123`。
+6. 在 **Changes** 检查自己实际提交的 diff，避免把密码、构建产物或无关文件带进去。
+7. 在 **Pipelines** 等 CI 通过；失败时打开 Job 日志修复，不要直接要求跳过。
+8. 指定 Reviewer，回应每条讨论并选择 Resolve thread。
+9. Maintainer 审查后合并；确认 Issue 自动关闭、默认分支流水线成功，必要时建立 Release。
+
+### 通知怎么用
+
+头像 → **Preferences → Notifications** 可设全局通知；项目页面的通知设置可覆盖全局。建议普通成员使用 Participating 或自定义，不要全部 Watch，否则容易被大量邮件淹没。紧急告警应由监控系统负责，不能只依赖 GitLab 邮件。
+
+## 角色与管理范围：最重要的差别
+
+GitLab 有“实例管理员”和“项目/群组角色”两个不同系统。Administrator 是整台 Self-Managed GitLab 的超级管理权限；Maintainer/Owner 是某个项目或群组范围内的权限。
+
+| 身份 | 范围 | 能做什么 | 不能/不应该做什么 |
+|---|---|---|---|
+| 一般登录用户（未加入项目） | 自己账号与可见的公开/内部内容 | 管理个人资料、SSH Key、Token；浏览有权内容 | 看不到 Private 项目，不能管理其他账号 |
+| Guest / Planner | 指定项目或群组 | Guest 参与有限协作；Planner 偏规划功能（实际能力依版本） | 通常不能推代码或改仓库设置 |
+| Reporter | 指定项目或群组 | 读取代码、Issue、MR、流水线和报告 | 不能向未保护分支 push |
+| Developer | 指定项目或群组 | 推功能分支、建 Issue/MR、运行流水线 | 不应改关键项目设置或绕过保护分支 |
+| Maintainer | 指定项目或群组 | 管分支、MR、CI/CD 设置与项目成员 | 不是系统管理员；不能任意管理其他项目或全站用户 |
+| Owner | 群组/项目最高治理范围 | 管群组成员、可见性、共享与高风险操作 | 仍不能进入实例 Admin；Owner 应极少 |
+| Administrator | 整个 GitLab 实例 | Admin area、全站用户/项目/Runner/设置/监控 | 日常开发不应一直依赖超级权限 |
+
+同一人可在 A 项目是 Developer、B 群组是 Owner。权限继承时以有效的较高角色为准，因此修改成员角色前要检查他是否从父群组继承权限。
+
+### 谁来做什么：实务分工
+
+- 一般使用者：维护自己的密码、2FA、SSH Key；写 Issue、代码与 MR；保护自己的 Token。
+- Developer：负责功能分支、测试、Pipeline 和修正审查意见。
+- Maintainer：保护默认分支、审核合并、维护 CI/CD、变量、Webhook、成员和项目容量。
+- Group Owner：设计群组结构、成员继承、群组 Runner/变量和项目建立规则。
+- Instance Administrator：账号生命周期、注册策略、全局安全、升级、备份、恢复、监控与容量；不代替项目负责人做日常代码决策。
+
 ## 管理员 Admin Area 完整操作
 
 管理员从左上角菜单进入 **Admin**。这里管理整个实例，不是单一项目。
@@ -295,6 +372,59 @@ cat ~/.ssh/id_ed25519.pub
 ### 安全与凭证
 
 管理员和 root 必须使用强密码及 2FA，恢复代码离线保存。个人访问 Token 只给必要 scope 并设置到期日；CI 秘密放在 masked/protected Variables，不写进仓库、URL 或日志。定期检查管理员、长期未用账号、过期 Token 与异常 Runner。
+
+
+### Admin 左侧菜单逐项管理
+
+| Admin 菜单 | 管理内容 | 建议操作频率 | 风险提醒 |
+|---|---|---|---|
+| **Overview → Users** | 用户状态、邮箱、2FA 筛选、最后活动、成员数 | 每周及到离职事件 | 删除前先封锁并转移所有权 |
+| **Overview → Projects** | 全站项目、可见性、容量、归档/待删除 | 每周检查异常容量 | Delete 会影响业务资料 |
+| **Overview → Groups** | 顶层群组与所有权 | 组织变动时 | 确保每个重要群组至少有可靠 Owner |
+| **CI/CD → Runners** | Instance/Group/Project Runner | 每周 | 暂停离线或可疑 Runner；Token 泄漏立即轮换 |
+| **CI/CD → Jobs** | 全站 Job 状态 | 故障或容量异常时 | 识别卡住、滥用资源的 Job |
+| **Monitoring → System information** | CPU、内存、版本与系统状态 | 每日监控辅助 | 不能替代外部监控 |
+| **Monitoring → Background jobs** | Sidekiq 队列、失败与延迟 | 队列告警时 | 不理解任务语义不要随意删除 |
+| **Monitoring → Logs** | 应用日志入口（依版本） | 排障时 | 日志可能含隐私，限制读取和留存 |
+| **Settings → General** | 注册、可见性、账号限制、命名与全局默认 | 初装及变更审批时 | 变更影响所有用户 |
+| **Settings → CI/CD** | 全局流水线与 Runner 政策 | Runner 架构调整时 | 防止不可信 Job 接触秘密或 Docker socket |
+| **Settings → Network** | 出站请求、Webhook 网络限制 | 接入系统时 | 防 SSRF，不要随意开放内网网段 |
+| **Settings → Repository** | 仓库、镜像、存储相关全局规则 | 规划变更时 | 先在测试环境验证 |
+
+### 建立一般用户
+
+1. 右上角选择 **Admin**。
+2. 左侧 **Overview → Users**。
+3. 选择 **New user**。
+4. 填 Name、Username、Email；Username 会影响个人 Namespace URL。
+5. Access 区域不要勾 Administrator，除非此人确实负责整台实例。
+6. 设项目数量或用户类型（如界面提供），选择 Create user。
+7. 由 SMTP 寄送首次登录链接；若未配置邮件，应采用安全方式交付临时凭证，并要求立即改密码和设 2FA。
+8. 到目标群组的 **Manage → Members** 加入正确角色，而不是直接给 Admin。
+
+### 封锁、停用、删除有什么差别
+
+- Block：立即禁止登录，资料与贡献保留；离职处理的第一步。
+- Deactivate：适合不活跃账号管理；实际重新启用行为依实例设置。
+- Ban：针对滥用账号，语义不同于正常离职。
+- Delete user：删除账号；可选择是否连贡献一起处理，影响大且难逆转。
+
+推荐离职清单：Block → 撤销会话/Token/SSH Key → 停用 Runner 凭证 → 转移群组 Owner 和项目责任 → 保存审计与合规资料 → 经过审批后决定保留或删除。
+
+### 管理项目成员
+
+项目内进入 **Manage → Members → Invite members**：输入现有用户名或邮箱，选角色与 Access expiration date 后邀请。临时外包一定设置到期日。继承成员必须回父群组修改，不能只在项目页改。Maintainer 能管理多数项目成员，但不应把别人提升为超出自己治理范围的角色。
+
+### 注册策略
+
+进入 **Admin → Settings → General → New user account restrictions**。内部实例建议关闭 **Allow new user accounts**；若允许注册，启用管理员审批与邮箱确认，并视需要设允许/拒绝邮箱域名。修改后用无痕窗口验证注册入口是否符合预期。
+
+### 管理员日常/每周/月度清单
+
+每日：确认 Web 健康、核心服务、磁盘、失败备份和严重告警。  
+每周：检查新管理员、Blocked/Pending 用户、离线 Runner、失败 Job、容量增长、备份校验与异机复制。  
+每月：修补版本、审查长期 Token/SSH Key、群组 Owner、公开项目、恢复演练记录、证书期限和 RTO/RPO。  
+每次变更：记录变更前状态与回退点，执行后测试登录、clone/push、MR、CI、邮件和备份。
 
 ### SMTP、限额与维护
 
