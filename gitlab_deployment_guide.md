@@ -6,6 +6,208 @@
 
 ---
 
+## 这台虚拟机的文件放在哪里
+
+### 1. 教程、图片和 PDF
+
+```text
+/home/wsfoo/gitlab-deployment-guide/
+├── README.md                         仓库首页说明
+├── gitlab_deployment_guide.md        完整中文教程原稿
+├── GitLab_Local_Deployment_Guide.pdf 可以直接阅读/下载的 PDF
+├── images/                           教程图片与登录页截图
+├── examples/docker-compose.yml       可参考的部署范例
+├── generate_pdf.js                   把 Markdown 转成 PDF 的程序
+├── package.json                      PDF 构建命令与依赖
+└── .git/                             Git 历史，不要手动修改
+```
+
+打开文件管理器后依序进入 **Home → gitlab-deployment-guide**。终端可用：
+
+```bash
+cd /home/wsfoo/gitlab-deployment-guide
+ls -lh
+xdg-open GitLab_Local_Deployment_Guide.pdf
+```
+
+如果只想阅读，打开 PDF；如果想修改教程，编辑 `gitlab_deployment_guide.md` 后执行 `npm run pdf` 重新生成 PDF。
+
+### 2. GitLab 正在使用的服务资料
+
+```text
+/home/wsfoo/gitlab/
+├── docker-compose.yml   容器版本、端口和挂载设置
+├── config/              gitlab.rb、gitlab-secrets.json、证书、SSH 主机密钥
+├── logs/                GitLab 各服务日志
+└── data/                数据库、Git 仓库、上传、Artifacts 和应用备份
+    └── backups/         gitlab-backup create 产生的 tar
+```
+
+这些是正在运行的正式资料。不要用文件管理器随意搬动、改名或删除 `config`、`data` 内的文件，也不要直接编辑数据库或仓库内部文件。配置通常只修改 `config/gitlab.rb`，修改前备份，之后执行：
+
+```bash
+docker exec gitlab gitlab-ctl reconfigure
+```
+
+### 3. 升级前独立配置备份
+
+```text
+/home/wsfoo/gitlab-backups/2026-08-10-before-19.2.1-upgrade/
+└── etc-gitlab/    升级前的配置、secrets 与 SSH 主机密钥副本
+```
+
+GitLab 应用备份目前位于：
+
+```text
+/home/wsfoo/gitlab/data/backups/1786350457_2026_08_10_19.2.0_gitlab_backup.tar
+```
+
+配置备份目录和应用 tar 必须一起保护。它们可能包含敏感资料，不能上传 GitHub、寄邮件或放进公开共享目录。为了防止虚拟机磁盘损坏，之后还要复制到另一台机器或加密外接磁盘。
+
+### 哪些文件会上传 GitHub
+
+只上传 `/home/wsfoo/gitlab-deployment-guide` 里的公开教程、示例、图片和 PDF。以下内容绝不上传：
+
+- `/home/wsfoo/gitlab/config/gitlab-secrets.json`
+- `/home/wsfoo/gitlab/config/ssh_host_*_key`
+- 任何真实 Token、密码或私钥
+- `/home/wsfoo/gitlab/data/backups/*.tar`
+- `/home/wsfoo/gitlab-backups/` 的真实配置备份
+
+## 零基础先修：GitLab 到底是什么
+
+GitLab 可以想成“团队自己的代码与工作管理网站”。它不只是放文件，还会记录谁改了什么、为什么修改、有没有经过检查，以及自动测试是否通过。
+
+### 先认识最常见名词
+
+| 名词 | 白话解释 | 类比 |
+|---|---|---|
+| Git | 记录文件每次变化的工具 | 会记住每个版本的无限次另存新档 |
+| Repository（仓库） | 项目文件及全部修改历史 | 可以回到旧版本的文件柜 |
+| Project（项目） | 仓库加 Issue、MR、CI/CD、成员和设置 | 一个完整工作空间 |
+| Group（群组） | 集中放项目和成员 | 公司部门资料夹 |
+| Branch（分支） | 从当前版本分出独立修改线 | 拿副本修改，不碰正式版 |
+| Commit（提交） | 一次有说明、作者和时间的版本记录 | 可追踪存档点 |
+| Clone | 第一次把完整仓库复制到电脑 | 下载项目及历史 |
+| Pull | 把 GitLab 最新内容取回电脑 | 同步团队更新 |
+| Push | 把电脑上的 commits 上传 | 上传你的新版本 |
+| Issue | 需求、Bug 或待办 | 一张工作单 |
+| Merge Request（MR） | 请求把分支修改合并，并请人审查 | 送出修改申请 |
+| Pipeline | 自动测试、构建、部署流程 | 自动品管生产线 |
+| Job | Pipeline 的一项工作 | 一个工站 |
+| Runner | 真正执行 Job 的程序或机器 | 负责动手的工人 |
+| Token | 可限制权限和期限的程序凭证 | 可撤销的临时电子钥匙 |
+| SSH Key | 公钥验证电脑，私钥留在自己电脑 | 公钥是锁，私钥是钥匙 |
+
+网页适合建立项目、Issue、MR、成员和查看 Pipeline；终端负责修改文件并上传。`git add` 是选择下次要记录的文件，`git commit` 是在本机建立记录，`git push` 才是真正上传。只有 commit 没有 push，其他人看不到。
+
+## 第一次打开网页：跟着做一次
+
+### 第 1 步：登录
+
+1. 浏览器输入 `http://192.168.70.196:8080`，不要输入 8022。
+2. Username or primary email 填管理员给你的用户名。
+3. Password 填密码，选择 **Sign in**。
+4. 若要求 2FA，输入验证器的六位数；恢复代码只在遗失验证器时使用。
+
+登录失败先检查大小写、输入法和 Caps Lock，不要连续猜测导致账号锁定。
+
+### 第 2 步：保护自己的账号
+
+右上角头像进入 **Edit profile** 或 **Preferences**：
+
+1. Profile：确认名称和邮箱。
+2. Password：第一次登录立即更换唯一强密码。
+3. Two-factor authentication：扫描 QR code，并离线保存恢复代码。
+4. Notifications：初学者建议 Participating，避免邮件过多。
+5. SSH Keys：需要从电脑 push 时加入公钥。
+6. Access Tokens：只有 API 确实需要才建立；选最少 scope、设到期日，不能截图公开。
+
+### 第 3 步：找到项目
+
+首页通常显示最近项目、活动或 To-Do。选择顶部 **Search or go to** 输入项目名。找不到项目通常表示还没被加入、Private 项目不可见或邀请未接受，应请项目 Maintainer 检查成员，而不是直接索取系统管理员权限。
+
+### 第 4 步：建立练习项目
+
+1. 顶部 **Create new**（加号）→ **New project/repository**。
+2. 选择 **Create blank project**。
+3. Project name 输入 `my-first-project`。
+4. Namespace 选择自己的用户名。
+5. Visibility Level 选择 **Private**。
+6. 勾选 **Initialize repository with a README**。
+7. 选择 **Create project**；看到 README 就表示成功。
+
+如果没有 New project，是账号被限制建立项目，并非系统坏掉。请让群组 Owner 在正确群组建立。
+
+### 第 5 步：只用网页修改文件
+
+1. 项目左侧 **Code → Repository**，打开 `README.md`。
+2. 选择 **Edit → Edit single file**。
+3. 在末尾加入一句说明。
+4. Commit message 输入 `docs: update README`。
+5. 默认分支受保护时，选择建立新分支并发起 MR，不要关闭保护。
+6. 选择 **Commit changes**，再检查绿色新增与红色删除。
+
+### 第 6 步：建立 Issue
+
+1. 左侧 **Plan → Issues → New issue**。
+2. Title 写结果，例如“在 README 加入安装步骤”。
+3. Description 写背景、要做什么、完成标准，可用 `- [ ]` 建检查清单。
+4. Assignee 是负责人；Label 是分类；Milestone 是目标阶段。
+5. 选择 **Create issue**，记住编号，例如 `#1`。
+
+补充信息用评论，避免偷偷改掉原描述导致讨论失去脉络。
+
+### 第 7 步：建立 Merge Request
+
+1. 从 Issue 选择 **Create merge request and branch**。
+2. 在新分支修改文件并 commit。
+3. 进入 **Code → Merge requests** 打开这个 MR。
+4. Description 写修改内容、测试结果、风险与 `Closes #1`。
+5. Assignee 是执行者，Reviewer 是审查者。
+6. 在 **Changes** 检查差异，确认没有密码或无关文件。
+7. 在 **Pipelines** 等自动测试通过。
+8. 回应 Reviewer 的讨论，修改后再次 push，MR 会自动更新。
+9. 有权限者选择 Merge；回到 Issue 确认已关闭。
+
+### 第 8 步：从电脑操作
+
+```bash
+git --version
+git config --global user.name "你的名称"
+git config --global user.email "你的 GitLab 邮箱"
+ssh-keygen -t ed25519 -C "你的 GitLab 邮箱"
+cat ~/.ssh/id_ed25519.pub
+```
+
+只复制以 `ssh-ed25519` 开头的 `.pub` 公钥到 **头像 → Preferences → SSH Keys**。没有 `.pub` 的是私钥，绝不能复制给任何人。
+
+```bash
+ssh -T -p 8022 git@192.168.70.196
+git clone ssh://git@192.168.70.196:8022/你的群组/你的项目.git
+cd 你的项目
+git pull --rebase origin main
+git switch -c feat/issue-1-readme
+# 修改文件后
+git status
+git diff
+git add README.md
+git commit -m "docs: add installation steps"
+git push -u origin feat/issue-1-readme
+```
+
+不要在不理解时使用 `git push --force`，它可能改写远端历史。
+
+### 做完后应该看到什么
+
+- Project 首页有文件和 commit 历史。
+- Issue 有编号、负责人和状态。
+- MR 显示差异、讨论与 Pipeline 状态。
+- 合并后默认分支出现修改。
+- 本机 `git status` 显示工作区 clean。
+
+只在电脑看到修改通常是还没 push；GitLab 有更新但电脑没有，通常需要 pull；出现无权限则检查成员角色和分支保护。
+
 ## 📌 目录
 - [一、 前言与硬件/环境要求](#一-前言与硬件环境要求)
 - [二、 GitLab 整体系统架构图解](#二-gitlab-整体系统架构图解)
@@ -421,9 +623,9 @@ GitLab 有“实例管理员”和“项目/群组角色”两个不同系统。
 
 ### 管理员日常/每周/月度清单
 
-每日：确认 Web 健康、核心服务、磁盘、失败备份和严重告警。  
-每周：检查新管理员、Blocked/Pending 用户、离线 Runner、失败 Job、容量增长、备份校验与异机复制。  
-每月：修补版本、审查长期 Token/SSH Key、群组 Owner、公开项目、恢复演练记录、证书期限和 RTO/RPO。  
+每日：确认 Web 健康、核心服务、磁盘、失败备份和严重告警。
+每周：检查新管理员、Blocked/Pending 用户、离线 Runner、失败 Job、容量增长、备份校验与异机复制。
+每月：修补版本、审查长期 Token/SSH Key、群组 Owner、公开项目、恢复演练记录、证书期限和 RTO/RPO。
 每次变更：记录变更前状态与回退点，执行后测试登录、clone/push、MR、CI、邮件和备份。
 
 ### SMTP、限额与维护
