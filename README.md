@@ -28,3 +28,4 @@ npm run pdf
 ```
 
 脚本自动寻找 Linux Google Chrome/Chromium，也可通过 `CHROME_PATH` 指定。仓库不会保存真实密码、Token、密钥或备份包。
+CI test
